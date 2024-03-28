@@ -45,6 +45,7 @@ class Movie(db.Model):
     ranking: Mapped[int]
     review: Mapped[str]
     img_url: Mapped[str]
+    test: Mapped[str]
 
 
 # CREATE TABLE
