@@ -26,6 +26,12 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///project.db"
 app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
 Bootstrap5(app)
 
+# FORM
+class MyForm(FlaskForm):
+    rating = StringField('Your rating', validators=[DataRequired()])
+    review = StringField('Your review', validators=[DataRequired()])
+    submit = SubmitField(label='Done')
+
 
 # CREATE DB
 class Base(DeclarativeBase):
@@ -85,6 +91,21 @@ def home():
     all_movies = result.scalars().all()
     return render_template("index.html", movies=all_movies)
 
+
+@app.route("/edit", methods=['GET', 'POST'])
+def edit():
+    movie_id = request.args.get('id')
+    form = MyForm()
+    if request.method == 'GET':
+        movie = db.session.execute(db.select(Movie).where(Movie.id == movie_id)).scalar()
+        return render_template("edit.html", movie=movie, form=form)
+
+    elif form.validate_on_submit():
+        movie_to_update = db.session.execute(db.select(Movie).where(Movie.id == movie_id)).scalar()
+        movie_to_update.rating = float(form.rating.data)
+        movie_to_update.review = form.review.data
+        db.session.commit()
+        return redirect(url_for('home'))
 
 if __name__ == '__main__':
     app.run(debug=True,  use_reloader=False)
