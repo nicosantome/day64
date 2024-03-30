@@ -26,11 +26,26 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///project.db"
 app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
 Bootstrap5(app)
 
+# TMDB API
+TMDB_API_KEY = '1c02e43f5c5028e6427d6390a31ddde7'
+TMDB_SEARCH = 'https://api.themoviedb.org/3/search/movie'
+TMDB_TOKEN = {
+    "Authorization":
+                  "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIxYzAyZTQzZjVjNTAyOGU2NDI3ZDYzOTBhMzFkZGRlNyIsInN1YiI6IjY2MDgzNzBmMmZhZjRkMDE2NGM4NDRiNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.9q0D2lIfNfDrQhhJwAUfbtyqXCGHsYALNp7WxjiWPgg"}
+TMDB_HEADER = {
+    "accept": "application/json"
+}
+
+
 # FORM
-class MyForm(FlaskForm):
+class EditForm(FlaskForm):
     rating = StringField('Your rating', validators=[DataRequired()])
     review = StringField('Your review', validators=[DataRequired()])
     submit = SubmitField(label='Done')
+
+class AddForm(FlaskForm):
+    tittle = StringField('Movie Title', validators=[DataRequired()])
+    submit = SubmitField(label='Add Movie')
 
 
 # CREATE DB
@@ -95,15 +110,15 @@ def home():
 @app.route("/edit", methods=['GET', 'POST'])
 def edit():
     movie_id = request.args.get('id')
-    form = MyForm()
+    edit_form = EditForm()
     if request.method == 'GET':
         movie = db.session.execute(db.select(Movie).where(Movie.id == movie_id)).scalar()
-        return render_template("edit.html", movie=movie, form=form)
+        return render_template("edit.html", movie=movie, form=edit_form)
 
-    elif form.validate_on_submit():
+    elif edit_form.validate_on_submit():
         movie_to_update = db.session.execute(db.select(Movie).where(Movie.id == movie_id)).scalar()
-        movie_to_update.rating = float(form.rating.data)
-        movie_to_update.review = form.review.data
+        movie_to_update.rating = float(edit_form.rating.data)
+        movie_to_update.review = edit_form.review.data
         db.session.commit()
         return redirect(url_for('home'))
 
@@ -116,6 +131,17 @@ def delete():
     db.session.commit()
     return redirect(url_for('home'))
 
+
+@app.route("/add", methods=['GET', 'POST'])
+def add():
+    add_form = AddForm()
+    if request.method == 'GET':
+        return render_template("add.html", form=add_form)
+    elif add_form.validate_on_submit():
+        movie_title = add_form.tittle.data
+        response = requests.get(TMDB_SEARCH, params={"api_key": TMDB_API_KEY, "query": movie_title})
+        all_movies = response.json()['results']
+        return render_template("select.html", movies=all_movies)
 
 if __name__ == '__main__':
     app.run(debug=True,  use_reloader=False)
