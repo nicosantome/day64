@@ -109,18 +109,16 @@ def home():
 
 @app.route("/edit", methods=['GET', 'POST'])
 def edit():
-    movie_id = request.args.get('id')
     edit_form = EditForm()
-    if request.method == 'GET':
-        movie = db.session.execute(db.select(Movie).where(Movie.id == movie_id)).scalar()
-        return render_template("edit.html", movie=movie, form=edit_form)
-
-    elif edit_form.validate_on_submit():
-        movie_to_update = db.session.execute(db.select(Movie).where(Movie.id == movie_id)).scalar()
-        movie_to_update.rating = float(edit_form.rating.data)
-        movie_to_update.review = edit_form.review.data
+    movie_id = request.args.get('id')
+    movie = db.get_or_404(Movie, movie_id)
+    print(movie)
+    if edit_form.validate_on_submit():
+        movie.rating = float(edit_form.rating.data)
+        movie.review = edit_form.review.data
         db.session.commit()
         return redirect(url_for('home'))
+    return render_template("edit.html", movie=movie, form=edit_form)
 
 
 @app.route("/delete")
@@ -141,7 +139,29 @@ def add():
         movie_title = add_form.tittle.data
         response = requests.get(TMDB_SEARCH, params={"api_key": TMDB_API_KEY, "query": movie_title})
         all_movies = response.json()['results']
+        print((all_movies))
         return render_template("select.html", movies=all_movies)
+
+
+@app.route("/select", methods=['GET'])
+def select():
+    details_url = f"https://api.themoviedb.org/3/movie/{request.args.get('id')}"
+    response = requests.get(details_url, params={"api_key": TMDB_API_KEY})
+    movie_selected = response.json()
+    new_movie = Movie(
+        title=movie_selected['title'],
+        year=movie_selected['release_date'].split('-')[0],
+        description=movie_selected['overview'],
+        img_url=f"https://image.tmdb.org/t/p/w500{movie_selected['poster_path']}"
+    )
+    print(new_movie.id)
+
+    with app.app_context():
+        db.session.add(new_movie)
+        db.session.commit()
+
+    return redirect(url_for('edit', id=new_movie.id))
+
 
 if __name__ == '__main__':
     app.run(debug=True,  use_reloader=False)
