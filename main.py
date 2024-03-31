@@ -2,7 +2,7 @@ from flask import Flask, render_template, redirect, url_for, request
 from flask_bootstrap import Bootstrap5
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import Integer, String, Float
+from sqlalchemy import Integer, String, Float, func
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired
@@ -102,8 +102,13 @@ class Movie(db.Model):
 
 @app.route("/")
 def home():
-    result = db.session.execute(db.select(Movie))
+    result = db.session.execute(db.select(Movie).order_by(Movie.rating))
     all_movies = result.scalars().all()
+    for i in range(len(all_movies)):
+        all_movies[i].ranking = len(all_movies) - i
+
+    db.session.commit()
+
     return render_template("index.html", movies=all_movies)
 
 
@@ -111,8 +116,8 @@ def home():
 def edit():
     edit_form = EditForm()
     movie_id = request.args.get('id')
-    movie = db.get_or_404(Movie, movie_id)
-    print(movie)
+    movie = db.session.query(Movie).get_or_404(movie_id)
+    db.session.refresh(movie)
     if edit_form.validate_on_submit():
         movie.rating = float(edit_form.rating.data)
         movie.review = edit_form.review.data
@@ -139,7 +144,6 @@ def add():
         movie_title = add_form.tittle.data
         response = requests.get(TMDB_SEARCH, params={"api_key": TMDB_API_KEY, "query": movie_title})
         all_movies = response.json()['results']
-        print((all_movies))
         return render_template("select.html", movies=all_movies)
 
 
@@ -154,13 +158,14 @@ def select():
         description=movie_selected['overview'],
         img_url=f"https://image.tmdb.org/t/p/w500{movie_selected['poster_path']}"
     )
-    print(new_movie.id)
+
 
     with app.app_context():
         db.session.add(new_movie)
         db.session.commit()
+        new_movie_id = db.session.query(func.max(Movie.id)).scalar()
 
-    return redirect(url_for('edit', id=new_movie.id))
+    return redirect(url_for('edit', id=new_movie_id))
 
 
 if __name__ == '__main__':
